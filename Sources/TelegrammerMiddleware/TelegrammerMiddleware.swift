@@ -8,17 +8,14 @@
 import Vapor
 import Telegrammer
 
-public class TelegrammerMiddleware: Middleware {
-    public let dispatcher: Dispatcher
+public protocol TelegrammerMiddleware: Middleware {
+    var dispatcher: Dispatcher { get }
+    var path: String { get }
+    var bot: Bot { get }
+}
 
-    private let path: String
-
-    public init(path: String, dispatcher: Dispatcher) {
-        self.dispatcher = dispatcher
-        self.path = path
-    }
-
-    public func respond(to request: Request, chainingTo next: Responder) -> EventLoopFuture<Response> {
+public extension TelegrammerMiddleware {
+    func respond(to request: Request, chainingTo next: Responder) -> EventLoopFuture<Response> {
         guard request.url.path == "/\(path)" else {
             return next.respond(to: request)
         }
@@ -28,13 +25,44 @@ public class TelegrammerMiddleware: Middleware {
         }
 
         dispatcher.enqueue(bytebuffer: body)
-        
-        return request.eventLoop.makeSucceededFuture(
-            Response(
-                status: .ok,
-                headers: .init(),
-                body: .init()
+
+        return request.eventLoop.makeSucceededFuture(Response())
+    }
+
+    func setWebhooks() throws -> EventLoopFuture<Bool> {
+        guard let config = bot.settings.webhooksConfig else {
+            throw CoreError(
+                type: .internal,
+                reason: "Initialization parameters wasn't found in enviroment variables"
             )
-        )
+        }
+
+        var cert: InputFile? = nil
+
+        if let publicCert = config.publicCert {
+            switch publicCert {
+                case .file(url: let url):
+                    guard let fileHandle = FileHandle(forReadingAtPath: url) else {
+                        let errorDescription = "Public key '\(publicCert)' was specified for HTTPS server, but wasn't found"
+                        throw CoreError(
+                            type: .internal,
+                            reason: errorDescription
+                        )
+                    }
+                    cert = InputFile(data: fileHandle.readDataToEndOfFile(), filename: url)
+                case .text(content: let textCert):
+                    guard let strData = textCert.data(using: .utf8) else {
+                        let errorDescription = "Public key body '\(textCert)' was specified for HTTPS server, but it cannot be converted into Data type"
+                        throw CoreError(
+                            type: .internal,
+                            reason: errorDescription
+                        )
+                    }
+                    cert = InputFile(data: strData, filename: "public.pem")
+            }
+        }
+
+        let params = Bot.SetWebhookParams(url: config.url, certificate: cert)
+        return try bot.setWebhook(params: params)
     }
 }

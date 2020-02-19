@@ -7,16 +7,18 @@
 
 import Foundation
 import Telegrammer
+import TelegrammerMiddleware
 
-class DemoEchoBot {
-    let bot: Bot
-    let dispatcher: Dispatcher
 
-    init(token: String) throws {
-        let settings = Bot.Settings(token: token)
+class DemoEchoBot: TelegrammerMiddleware {
+    public let dispatcher: Dispatcher
+    public let path: String
+    public let bot: Bot
+
+    public init(path: String, settings: Bot.Settings) throws {
+        self.path = path
         self.bot = try Bot(settings: settings)
-
-        dispatcher = Dispatcher(bot: bot)
+        self.dispatcher = Dispatcher(bot: bot)
 
         dispatcher.add(
             handler: MessageHandler(
@@ -35,7 +37,7 @@ class DemoEchoBot {
             chatId: .chat(message.chat.id),
             text: text
         )
-        
+
         try bot.sendMessage(params: params)
     }
 }
