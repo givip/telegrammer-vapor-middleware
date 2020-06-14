@@ -6,15 +6,15 @@ import PackageDescription
 let package = Package(
     name: "telegrammer-vapor-middleware",
     platforms: [
-        .macOS(.v10_14)
+        .macOS(.v10_15)
     ],
     products: [
         .executable(name: "DemoTelegrammerMiddleware", targets: ["DemoTelegrammerMiddleware"]),
         .library(name: "TelegrammerMiddleware", targets: ["TelegrammerMiddleware"])
     ],
     dependencies: [
-        .package(url: "https://github.com/vapor/vapor.git", from: "4.0.0-beta"),
-        .package(url: "https://github.com/givip/Telegrammer.git", from: "1.0.0-alpha")
+        .package(url: "https://github.com/vapor/vapor.git", from: "4.9.0"),
+        .package(url: "https://github.com/givip/Telegrammer.git", .branch("develop"))
     ],
     targets: [
         .target(name: "TelegrammerMiddleware", dependencies: [
