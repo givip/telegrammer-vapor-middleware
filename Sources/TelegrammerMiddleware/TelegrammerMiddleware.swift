@@ -66,3 +66,48 @@ public extension TelegrammerMiddleware {
         return try bot.setWebhook(params: params)
     }
 }
+
+// MARK: Concurrency Support
+#if compiler(>=5.5)
+@available(macOS 12.0, iOS 15.0, watchOS 8.0, tvOS 15.0, *)
+public extension TelegrammerMiddleware {
+    
+    func setWebhooks() async throws -> Bool {
+        guard let config = bot.settings.webhooksConfig else {
+            throw CoreError(
+                type: .internal,
+                reason: "Initialization parameters wasn't found in enviroment variables"
+            )
+        }
+
+        var cert: InputFile? = nil
+
+        if let publicCert = config.publicCert {
+            switch publicCert {
+                case .file(url: let url):
+                    guard let fileHandle = FileHandle(forReadingAtPath: url) else {
+                        let errorDescription = "Public key '\(publicCert)' was specified for HTTPS server, but wasn't found"
+                        throw CoreError(
+                            type: .internal,
+                            reason: errorDescription
+                        )
+                    }
+                    cert = InputFile(data: fileHandle.readDataToEndOfFile(), filename: url)
+                case .text(content: let textCert):
+                    guard let strData = textCert.data(using: .utf8) else {
+                        let errorDescription = "Public key body '\(textCert)' was specified for HTTPS server, but it cannot be converted into Data type"
+                        throw CoreError(
+                            type: .internal,
+                            reason: errorDescription
+                        )
+                    }
+                    cert = InputFile(data: strData, filename: "public.pem")
+            }
+        }
+
+        let params = Bot.SetWebhookParams(url: config.url, certificate: cert)
+        return try await bot.setWebhook(params: params)
+    }
+    
+}
+#endif
